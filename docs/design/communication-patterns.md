@@ -98,9 +98,9 @@ Current task status = the `status` field of the latest `task-status` for a given
 ```mermaid
 stateDiagram-v2
   [*] --> pending: Task appended to store
-  pending --> in-progress: Execution engine picks up task
-  in-progress --> done: Agent appends TaskResult
-  in-progress --> failed: Agent appends TaskResult with error
+  pending --> in_progress: Execution engine picks up task
+  in_progress --> done: Agent appends TaskResult
+  in_progress --> failed: Agent appends TaskResult with error
   done --> [*]
   failed --> [*]
 ```
