@@ -14,6 +14,7 @@ export type ContextNode<
 export type User = ContextNode<
   "user",
   {
+    key?: string;
     name?: string;
   }
 >;
@@ -21,6 +22,7 @@ export type User = ContextNode<
 export type Agent = ContextNode<
   "agent",
   {
+    key?: string;
     name?: string;
     role?: string;
   }
@@ -35,7 +37,13 @@ export type System = ContextNode<
 
 export type Session = ContextNode<"session", Record<string, never>>;
 
-export type Thread = ContextNode<"thread", Record<string, never>>;
+export type Thread = ContextNode<
+  "thread",
+  {
+    key?: string;
+    name?: string;
+  }
+>;
 
 export type Message = ContextNode<
   "message",
@@ -72,6 +80,7 @@ export type ToolCall = ContextNode<
     tool: string;
     args: Record<string, unknown>;
     threadId?: ContextId;
+    runtimeToolCallId?: string;
     toolDefinitionId?: ContextId;
     targetId?: ContextId;
   }
@@ -82,6 +91,7 @@ export type ToolResult = ContextNode<
   {
     output: unknown;
     threadId?: ContextId;
+    runtimeToolCallId?: string;
     toolCallId?: ContextId;
     isError?: boolean;
   }

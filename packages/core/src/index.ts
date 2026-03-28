@@ -1,5 +1,6 @@
 export * from "./context-types.js";
 export * from "./context.js";
+export * from "./context-identity.js";
 export * from "./context-text.js";
 export * from "./context-store.js";
 export * from "./context-journal.js";

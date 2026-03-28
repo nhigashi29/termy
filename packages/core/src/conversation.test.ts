@@ -23,12 +23,12 @@ describe("conversation", () => {
     const conversation = createConversation({
       store,
       runtime,
-      threadId: "thread:1",
-      userId: "user:naoki",
-      agentId: "agent:pi",
+      threadId: "thread-1",
+      userId: "user-1",
+      agentId: "agent-1",
       idGenerator: (() => {
-        const ids = ["message:1", "message:2"];
-        return () => ids.shift() ?? "message:overflow";
+        const ids = ["message-1", "message-2"];
+        return () => ids.shift() ?? "message-overflow";
       })(),
     });
 
@@ -42,38 +42,38 @@ describe("conversation", () => {
     expect(deltas).toEqual(["hello", " world"]);
     expect(runtime.run).toHaveBeenCalledWith(
       {
-        input: "thread thread:1\nuser: 見て",
+        input: "thread thread-1\nuser: 見て",
         systemPrompt: undefined,
       },
       expect.objectContaining({ onTextDelta: expect.any(Function) }),
     );
     expect(assistantMessage).toMatchObject({
-      id: "message:2",
+      id: "message-2",
       type: "message",
-      createdBy: "agent:pi",
+      createdBy: "agent-1",
       payload: {
         role: "assistant",
-        text: "assistant <- thread thread:1\nuser: 見て",
-        threadId: "thread:1",
-        previousMessageId: "message:1",
+        text: "assistant <- thread thread-1\nuser: 見て",
+        threadId: "thread-1",
+        previousMessageId: "message-1",
       },
     });
     expect(conversation.listThread()).toMatchObject([
-      { id: "thread:1", type: "thread" },
+      { id: "thread-1", type: "thread" },
       {
-        id: "message:1",
+        id: "message-1",
         type: "message",
-        createdBy: "user:naoki",
+        createdBy: "user-1",
         payload: {
           role: "user",
           text: "見て",
-          threadId: "thread:1",
+          threadId: "thread-1",
         },
       },
       {
-        id: "message:2",
+        id: "message-2",
         type: "message",
-        createdBy: "agent:pi",
+        createdBy: "agent-1",
       },
     ]);
   });
@@ -103,12 +103,12 @@ describe("conversation", () => {
     const conversation = createConversation({
       store,
       runtime,
-      threadId: "thread:tools",
-      userId: "user:naoki",
-      agentId: "agent:pi",
+      threadId: "thread-tools",
+      userId: "user-1",
+      agentId: "agent-1",
       idGenerator: (() => {
-        const ids = ["message:1", "message:2"];
-        return () => ids.shift() ?? "message:overflow";
+        const ids = ["message-1", "message-2", "tool-call-1", "tool-result-1"];
+        return () => ids.shift() ?? "overflow-id";
       })(),
     });
 
@@ -116,7 +116,7 @@ describe("conversation", () => {
 
     expect(runtime.run).toHaveBeenCalledWith(
       {
-        input: "thread thread:tools\nuser: README を見て",
+        input: "thread thread-tools\nuser: README を見て",
         systemPrompt: undefined,
       },
       expect.objectContaining({
@@ -126,31 +126,33 @@ describe("conversation", () => {
     );
 
     expect(conversation.listThread()).toMatchObject([
-      { id: "thread:tools", type: "thread" },
-      { id: "message:1", type: "message" },
+      { id: "thread-tools", type: "thread" },
+      { id: "message-1", type: "message" },
       {
-        id: "toolcall:call-1",
+        id: "tool-call-1",
         type: "tool-call",
-        createdBy: "agent:pi",
+        createdBy: "agent-1",
         payload: {
           tool: "read",
           args: { path: "README.md" },
-          threadId: "thread:tools",
-          targetId: "message:1",
+          threadId: "thread-tools",
+          runtimeToolCallId: "call-1",
+          targetId: "message-1",
         },
       },
       {
-        id: "toolresult:call-1",
+        id: "tool-result-1",
         type: "tool-result",
-        createdBy: "agent:pi",
+        createdBy: "agent-1",
         payload: {
           output: "# hello",
-          threadId: "thread:tools",
-          toolCallId: "toolcall:call-1",
+          threadId: "thread-tools",
+          runtimeToolCallId: "call-1",
+          toolCallId: "tool-call-1",
           isError: false,
         },
       },
-      { id: "message:2", type: "message" },
+      { id: "message-2", type: "message" },
     ]);
   });
 
@@ -169,13 +171,13 @@ describe("conversation", () => {
     const conversation = createConversation({
       store,
       runtime,
-      threadId: "thread:journal",
-      userId: "user:naoki",
-      agentId: "agent:pi",
+      threadId: "thread-journal",
+      userId: "user-1",
+      agentId: "agent-1",
       journal,
       idGenerator: (() => {
-        const ids = ["message:1", "message:2"];
-        return () => ids.shift() ?? "message:overflow";
+        const ids = ["message-1", "message-2"];
+        return () => ids.shift() ?? "message-overflow";
       })(),
     });
 
@@ -184,15 +186,15 @@ describe("conversation", () => {
     expect(journal.append).toHaveBeenCalledTimes(3);
     expect(journal.append).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ id: "thread:journal", type: "thread" }),
+      expect.objectContaining({ id: "thread-journal", type: "thread" }),
     );
     expect(journal.append).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ id: "message:1", type: "message" }),
+      expect.objectContaining({ id: "message-1", type: "message" }),
     );
     expect(journal.append).toHaveBeenNthCalledWith(
       3,
-      expect.objectContaining({ id: "message:2", type: "message" }),
+      expect.objectContaining({ id: "message-2", type: "message" }),
     );
   });
 });

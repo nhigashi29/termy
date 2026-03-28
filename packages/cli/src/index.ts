@@ -7,6 +7,9 @@ import {
   createContextStore,
   createConversation,
   createJsonlContextJournal,
+  ensureAgentContext,
+  ensureThreadContext,
+  ensureUserContext,
   loadContextsFromJsonl,
 } from "@termy/core";
 
@@ -15,7 +18,6 @@ import { createPiSdkRuntime } from "./pi-sdk-runtime.js";
 async function main(): Promise<void> {
   console.log("[cli] booting @termy/cli");
 
-  const threadId = "thread:main";
   const sessionPath = join(process.cwd(), ".termy", "sessions", "main.jsonl");
   mkdirSync(dirname(sessionPath), { recursive: true });
 
@@ -23,12 +25,33 @@ async function main(): Promise<void> {
   const existingContexts = loadContextsFromJsonl(sessionPath);
   const store = createContextStore(existingContexts);
   const journal = createJsonlContextJournal(sessionPath);
+
+  const initialCount = store.list().length;
+  const thread = ensureThreadContext({
+    store,
+    key: "main",
+    name: "main",
+  });
+  const user = ensureUserContext({
+    store,
+    key: "cli",
+    name: "cli",
+  });
+  const agent = ensureAgentContext({
+    store,
+    key: "pi-runtime",
+    name: "pi",
+    role: "runtime",
+  });
+  const bootstrappedContexts = store.list().slice(initialCount);
+  journal.appendMany(bootstrappedContexts);
+
   const conversation = createConversation({
     store,
     runtime,
-    threadId,
-    userId: "user:cli",
-    agentId: "agent:pi",
+    threadId: thread.id,
+    userId: user.id,
+    agentId: agent.id,
     journal,
   });
   const rl = readline.createInterface({ input, output });

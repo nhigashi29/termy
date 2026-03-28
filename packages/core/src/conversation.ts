@@ -1,13 +1,12 @@
-import { randomUUID } from "node:crypto";
-
 import { createContextNode } from "./context.js";
+import { createContextId } from "./context-identity.js";
 import type { ContextJournal } from "./context-journal.js";
-import type { AnyContext, ContextId, Message } from "./context-types.js";
+import type { AnyContext, ContextId, Message, ToolCall, ToolResult } from "./context-types.js";
 import type { ContextStore } from "./context-store.js";
 import { runContextsWithPi, type PiRuntime, type PiRuntimeRunHooks } from "./pi-runtime.js";
 import type { PiProjectionMode } from "./pi-projection.js";
 
-export type ConversationIdGenerator = (prefix: string) => ContextId;
+export type ConversationIdGenerator = () => ContextId;
 
 export type CreateConversationInput = {
   store: ContextStore;
@@ -27,8 +26,8 @@ export interface Conversation {
   listThread(): AnyContext[];
 }
 
-function defaultIdGenerator(prefix: string): ContextId {
-  return `${prefix}:${randomUUID()}`;
+function defaultIdGenerator(): ContextId {
+  return createContextId();
 }
 
 function appendContext(
@@ -38,6 +37,26 @@ function appendContext(
 ): void {
   store.append(context);
   journal?.append(context);
+}
+
+function findToolCallContext(
+  store: ContextStore,
+  threadId: ContextId,
+  runtimeToolCallId: string,
+): ToolCall | undefined {
+  return store.listThread(threadId).find((context) => {
+    return context.type === "tool-call" && context.payload.runtimeToolCallId === runtimeToolCallId;
+  }) as ToolCall | undefined;
+}
+
+function findToolResultContext(
+  store: ContextStore,
+  threadId: ContextId,
+  runtimeToolCallId: string,
+): ToolResult | undefined {
+  return store.listThread(threadId).find((context) => {
+    return context.type === "tool-result" && context.payload.runtimeToolCallId === runtimeToolCallId;
+  }) as ToolResult | undefined;
 }
 
 export function createConversation(input: CreateConversationInput): Conversation {
@@ -61,7 +80,7 @@ export function createConversation(input: CreateConversationInput): Conversation
     async sendUserMessage(text: string, hooks?: PiRuntimeRunHooks): Promise<Message> {
       const previousMessage = input.store.latestMessage(input.threadId);
       const userMessage = createContextNode({
-        id: idGenerator("message"),
+        id: idGenerator(),
         type: "message",
         createdBy: input.userId,
         payload: {
@@ -79,19 +98,24 @@ export function createConversation(input: CreateConversationInput): Conversation
           hooks?.onTextDelta?.(delta);
         },
         onToolCall(event) {
-          const toolCallContextId = `toolcall:${event.toolCallId}`;
+          const existingToolCall = findToolCallContext(
+            input.store,
+            input.threadId,
+            event.toolCallId,
+          );
 
-          if (!input.store.get(toolCallContextId)) {
+          if (!existingToolCall) {
             appendContext(
               input.store,
               createContextNode({
-                id: toolCallContextId,
+                id: idGenerator(),
                 type: "tool-call",
                 createdBy: input.agentId,
                 payload: {
                   tool: event.tool,
                   args: event.args,
                   threadId: input.threadId,
+                  runtimeToolCallId: event.toolCallId,
                   targetId: userMessage.id,
                 },
               }),
@@ -102,19 +126,25 @@ export function createConversation(input: CreateConversationInput): Conversation
           hooks?.onToolCall?.(event);
         },
         onToolResult(event) {
-          const toolResultContextId = `toolresult:${event.toolCallId}`;
+          const toolCallContext = findToolCallContext(input.store, input.threadId, event.toolCallId);
+          const existingToolResult = findToolResultContext(
+            input.store,
+            input.threadId,
+            event.toolCallId,
+          );
 
-          if (!input.store.get(toolResultContextId)) {
+          if (!existingToolResult) {
             appendContext(
               input.store,
               createContextNode({
-                id: toolResultContextId,
+                id: idGenerator(),
                 type: "tool-result",
                 createdBy: input.agentId,
                 payload: {
                   output: event.output,
                   threadId: input.threadId,
-                  toolCallId: `toolcall:${event.toolCallId}`,
+                  runtimeToolCallId: event.toolCallId,
+                  toolCallId: toolCallContext?.id,
                   isError: event.isError,
                 },
               }),
@@ -129,7 +159,7 @@ export function createConversation(input: CreateConversationInput): Conversation
       const assistantMessage = await runContextsWithPi({
         runtime: input.runtime,
         contexts: input.store.listThread(input.threadId),
-        messageId: idGenerator("message"),
+        messageId: idGenerator(),
         threadId: input.threadId,
         previousMessageId: userMessage.id,
         createdBy: input.agentId,

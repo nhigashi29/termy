@@ -12,17 +12,23 @@ function formatValue(value: unknown): string {
 
 export function toContextText(context: AnyContext): string {
   return match(context)
-    .with({ type: "user" }, (context) => `user ${context.payload.name ?? context.id}`)
+    .with(
+      { type: "user" },
+      (context) => `user ${context.payload.name ?? context.payload.key ?? context.id}`,
+    )
     .with(
       { type: "agent" },
       (context) =>
-        `agent ${context.payload.name ?? context.id}${
+        `agent ${context.payload.name ?? context.payload.key ?? context.id}${
           context.payload.role ? ` (${context.payload.role})` : ""
         }`,
     )
     .with({ type: "system" }, (context) => `system ${context.payload.name ?? context.id}`)
     .with({ type: "session" }, (context) => `session ${context.id}`)
-    .with({ type: "thread" }, (context) => `thread ${context.id}`)
+    .with(
+      { type: "thread" },
+      (context) => `thread ${context.payload.name ?? context.payload.key ?? context.id}`,
+    )
     .with({ type: "message" }, (context) => `${context.payload.role}: ${context.payload.text}`)
     .with(
       { type: "capability" },

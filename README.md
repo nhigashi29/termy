@@ -24,4 +24,5 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`docs/architecture.md`](docs/architecture.md)
+- [`docs/context-model.md`](docs/context-model.md)
 - [`AGENTS.md`](AGENTS.md)
