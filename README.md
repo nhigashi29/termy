@@ -103,16 +103,29 @@ pnpm start
 
 ## Docs
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- [`docs/architecture.md`](docs/architecture.md) — current implementation structure
-- [`docs/context-model.md`](docs/context-model.md) — design philosophy
+Since the project is now closed, the documentation is best read in two groups:
+
+### Final summary
+
 - [`docs/retrospective.md`](docs/retrospective.md) — project summary and final lessons learned
-- [`docs/design/context-model.md`](docs/design/context-model.md) — future context model notes
-- [`docs/design/communication-patterns.md`](docs/design/communication-patterns.md) — channel/thread/task design direction
-- [`docs/design/implementation-plan.md`](docs/design/implementation-plan.md) — phased implementation ideas
-- [`docs/design/multi-agent.md`](docs/design/multi-agent.md) — multi-agent coordination direction
-- [`docs/design/goal-architecture.md`](docs/design/goal-architecture.md) — long-term target architecture
-- [`docs/design/context-control-plane.md`](docs/design/context-control-plane.md) — why context needs explicit runtime control
-- [`docs/design/06_async-task-semantics-and-notifications.md`](docs/design/06_async-task-semantics-and-notifications.md) — async task model, waiting, and notifications
-- [`docs/design/07_reactive-orchestration-and-manager-event-loop.md`](docs/design/07_reactive-orchestration-and-manager-event-loop.md) — scheduler-oriented reactive orchestration
+- [`docs/architecture.md`](docs/architecture.md) — snapshot of the implemented architecture
+- [`docs/context-model.md`](docs/context-model.md) — context-first design philosophy
+
+### Design archive
+
+These documents capture the design path, open questions, and intermediate proposals explored during the experiment.
+They are useful as references, but should be read as design notes rather than an active roadmap.
+
+- [`docs/design/context-model.md`](docs/design/context-model.md)
+- [`docs/design/communication-patterns.md`](docs/design/communication-patterns.md)
+- [`docs/design/implementation-plan.md`](docs/design/implementation-plan.md)
+- [`docs/design/multi-agent.md`](docs/design/multi-agent.md)
+- [`docs/design/goal-architecture.md`](docs/design/goal-architecture.md)
+- [`docs/design/context-control-plane.md`](docs/design/context-control-plane.md)
+- [`docs/design/06_async-task-semantics-and-notifications.md`](docs/design/06_async-task-semantics-and-notifications.md)
+- [`docs/design/07_reactive-orchestration-and-manager-event-loop.md`](docs/design/07_reactive-orchestration-and-manager-event-loop.md)
+
+### Repository meta
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`AGENTS.md`](AGENTS.md)
