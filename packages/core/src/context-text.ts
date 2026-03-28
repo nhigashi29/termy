@@ -27,7 +27,7 @@ export function toContextText(context: AnyContext): string {
     .with({ type: "session" }, (context) => `session ${context.id}`)
     .with(
       { type: "thread" },
-      (context) => `thread ${context.payload.name ?? context.payload.key ?? context.id}`,
+      (context) => `thread ${context.payload.name ?? context.payload.key ?? context.id}${context.payload.mode ? ` (${context.payload.mode})` : ""}${context.payload.turnPolicy ? ` turn:${context.payload.turnPolicy}` : ""}`,
     )
     .with({ type: "message" }, (context) => `${context.payload.role}: ${context.payload.text}`)
     .with(
@@ -70,6 +70,34 @@ export function toContextText(context: AnyContext): string {
         `agent-status ${context.payload.agentId} ${context.payload.status}${
           context.payload.taskId ? ` task:${context.payload.taskId}` : ""
         }`,
+    )
+    .with(
+      { type: "notification" },
+      (context) =>
+        `notification ${context.payload.kind}${
+          context.payload.taskId ? ` task:${context.payload.taskId}` : ""
+        }${context.payload.message ? ` ${context.payload.message}` : ""}`,
+    )
+    .with(
+      { type: "reply-request" },
+      (context) =>
+        `reply-request from:${context.payload.requestedBy ?? "unknown"} to:${context.payload.requestedFrom}${
+          context.payload.taskId ? ` task:${context.payload.taskId}` : ""
+        }${context.payload.message ? ` ${context.payload.message}` : ""}`,
+    )
+    .with(
+      { type: "meeting-turn" },
+      (context) =>
+        `meeting-turn from:${context.payload.requestedBy ?? "unknown"} to:${context.payload.requestedFrom}${
+          context.payload.taskId ? ` task:${context.payload.taskId}` : ""
+        }${context.payload.agenda ? ` ${context.payload.agenda}` : ""}`,
+    )
+    .with(
+      { type: "meeting-state" },
+      (context) =>
+        `meeting-state ${context.payload.status}${
+          context.payload.facilitatorId ? ` facilitator:${context.payload.facilitatorId}` : ""
+        }${context.payload.objective ? ` ${context.payload.objective}` : ""}`,
     )
     .exhaustive();
 }

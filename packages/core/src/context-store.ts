@@ -1,5 +1,5 @@
 import type { ContextJournal } from "./context-journal.js";
-import type { AgentContext, AgentStatus, AnyContext, ContextId, Message, Task, TaskResult, TaskStatus, TaskStatusChange } from "./context-types.js";
+import type { AgentContext, AgentStatus, AnyContext, ContextId, MeetingTurn, Message, Notification, ReplyRequest, Task, TaskResult, TaskStatus, TaskStatusChange } from "./context-types.js";
 
 export interface ContextStore {
   append(context: AnyContext): void;
@@ -14,6 +14,9 @@ export interface ContextStore {
   latestAgentStatus(agentId: ContextId): AgentStatus | undefined;
   listAgents(): AgentContext[];
   findAgentByRole(role: string): AgentContext | undefined;
+  listNotifications(): Notification[];
+  listPendingReplyRequests(agentId: ContextId): ReplyRequest[];
+  listPendingMeetingTurns(agentId: ContextId): MeetingTurn[];
   subscribe(listener: (context: AnyContext) => void): () => void;
 }
 
@@ -31,6 +34,10 @@ function isThreadScopedContext(context: AnyContext, threadId: ContextId): boolea
   }
 
   if (context.type === "tool-call" || context.type === "tool-result") {
+    return context.payload.threadId === threadId;
+  }
+
+  if (context.type === "reply-request" || context.type === "meeting-turn" || context.type === "meeting-state") {
     return context.payload.threadId === threadId;
   }
 
@@ -143,6 +150,42 @@ export function createContextStore(
         (context): context is AgentContext =>
           context.type === "agent" && context.payload.role === role,
       );
+    },
+
+    listNotifications() {
+      return contexts.filter(
+        (context): context is Notification => context.type === "notification",
+      );
+    },
+
+    listPendingReplyRequests(agentId) {
+      return contexts.filter((context, index): context is ReplyRequest => {
+        if (context.type !== "reply-request") return false;
+        if (context.payload.requestedFrom !== agentId) return false;
+
+        return !contexts.some((candidate, candidateIndex) => {
+          if (candidateIndex <= index) return false;
+          if (candidate.type !== "message") return false;
+          if (candidate.createdBy !== agentId) return false;
+          if (candidate.payload.threadId !== context.payload.threadId) return false;
+          return true;
+        });
+      });
+    },
+
+    listPendingMeetingTurns(agentId) {
+      return contexts.filter((context, index): context is MeetingTurn => {
+        if (context.type !== "meeting-turn") return false;
+        if (context.payload.requestedFrom !== agentId) return false;
+
+        return !contexts.some((candidate, candidateIndex) => {
+          if (candidateIndex <= index) return false;
+          if (candidate.type !== "message") return false;
+          if (candidate.createdBy !== agentId) return false;
+          if (candidate.payload.threadId !== context.payload.threadId) return false;
+          return true;
+        });
+      });
     },
 
     subscribe(listener) {

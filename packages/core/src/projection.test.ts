@@ -112,6 +112,15 @@ describe("projection", () => {
             instruction: "research this",
           },
         }),
+        createContextNode({
+          id: "notification:1",
+          type: "notification",
+          payload: {
+            kind: "task-completed" as const,
+            taskId: "task:1",
+            message: "task task:1 completed",
+          },
+        }),
       ];
 
       const project = managerProjection("You are a manager.");
@@ -127,8 +136,9 @@ describe("projection", () => {
       expect(result.transcript).toContain("user: README.mdを要約して");
       // Should NOT include other thread messages
       expect(result.transcript).not.toContain("other thread");
-      // Should include task (global)
+      // Should include task and notification (global)
       expect(result.transcript).toContain("task task:1: research this");
+      expect(result.transcript).toContain("notification task-completed task:task:1 task task:1 completed");
     });
 
     it("works with no agents in context", () => {
@@ -136,6 +146,70 @@ describe("projection", () => {
       const result = project(contexts, "thread:1");
       expect(result.transcript).toContain("user: README を見て");
       expect(result.transcript).not.toContain("tool-call");
+    });
+
+    it("includes reply-request contexts for the active thread", () => {
+      const allContexts = [
+        createContextNode({
+          id: "thread:reply",
+          type: "thread",
+          payload: {},
+        }),
+        createContextNode({
+          id: "reply:1",
+          type: "reply-request",
+          payload: {
+            threadId: "thread:reply",
+            requestedFrom: "agent:manager",
+            requestedBy: "agent:worker",
+            message: "Need clarification",
+          },
+        }),
+      ];
+
+      const project = managerProjection();
+      const result = project(allContexts, "thread:reply");
+      expect(result.transcript).toContain("reply-request from:agent:worker to:agent:manager Need clarification");
+    });
+
+    it("includes meeting thread state and turns", () => {
+      const allContexts = [
+        createContextNode({
+          id: "thread:meeting",
+          type: "thread",
+          payload: {
+            name: "design review",
+            mode: "meeting" as const,
+            participantIds: ["agent:manager", "agent:reviewer"],
+            turnPolicy: "manager-mediated" as const,
+          },
+        }),
+        createContextNode({
+          id: "meeting-state:1",
+          type: "meeting-state",
+          payload: {
+            threadId: "thread:meeting",
+            status: "open" as const,
+            facilitatorId: "agent:manager",
+            objective: "Review design",
+          },
+        }),
+        createContextNode({
+          id: "meeting-turn:1",
+          type: "meeting-turn",
+          payload: {
+            threadId: "thread:meeting",
+            requestedFrom: "agent:reviewer",
+            requestedBy: "agent:manager",
+            agenda: "Give feedback",
+          },
+        }),
+      ];
+
+      const result = managerProjection()(allContexts, "thread:meeting");
+      expect(result.transcript).toContain("thread design review (meeting) turn:manager-mediated");
+      expect(result.transcript).toContain("meeting-state open facilitator:agent:manager Review design");
+      expect(result.transcript).toContain("meeting-turn from:agent:manager to:agent:reviewer Give feedback");
     });
   });
 
@@ -190,6 +264,34 @@ describe("projection", () => {
       expect(result.transcript).toContain("user: summarize README");
       expect(result.transcript).toContain('tool-call read {"path":"README.md"}');
       expect(result.transcript).toContain("tool-result # Project");
+    });
+
+    it("includes reply-request context for the current thread", () => {
+      const workerContexts = [
+        createContextNode({
+          id: "agent:reader",
+          type: "agent",
+          payload: { name: "reader", role: "worker" },
+        }),
+        createContextNode({
+          id: "thread:worker",
+          type: "thread",
+          payload: {},
+        }),
+        createContextNode({
+          id: "reply:1",
+          type: "reply-request",
+          payload: {
+            threadId: "thread:worker",
+            requestedFrom: "agent:reader",
+            requestedBy: "agent:manager",
+            message: "Please answer",
+          },
+        }),
+      ];
+
+      const result = workerProjection()(workerContexts, "thread:worker");
+      expect(result.transcript).toContain("reply-request from:agent:manager to:agent:reader Please answer");
     });
 
     it("excludes messages from other threads", () => {

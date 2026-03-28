@@ -37,11 +37,17 @@ export type System = ContextNode<
 
 export type Session = ContextNode<"session", Record<string, never>>;
 
+export type ThreadMode = "conversation" | "meeting" | "broadcast" | "stream";
+export type ThreadTurnPolicy = "free" | "round-robin" | "manager-mediated";
+
 export type Thread = ContextNode<
   "thread",
   {
     key?: string;
     name?: string;
+    mode?: ThreadMode;
+    participantIds?: ContextId[];
+    turnPolicy?: ThreadTurnPolicy;
   }
 >;
 
@@ -128,7 +134,7 @@ export type TaskResult = ContextNode<
   }
 >;
 
-export type AgentRunStatus = "idle" | "running";
+export type AgentRunStatus = "idle" | "running" | "waiting" | "stopped";
 
 export type AgentStatus = ContextNode<
   "agent-status",
@@ -137,6 +143,54 @@ export type AgentStatus = ContextNode<
     status: AgentRunStatus;
     taskId?: ContextId;
     threadId?: ContextId;
+  }
+>;
+
+export type Notification = ContextNode<
+  "notification",
+  {
+    kind: string;
+    targetAgentId?: ContextId;
+    taskId?: ContextId;
+    threadId?: ContextId;
+    message?: string;
+  }
+>;
+
+export type NotificationSubscription = {
+  subscriberAgentId: ContextId;
+  kinds: string[];
+};
+
+export type ReplyRequest = ContextNode<
+  "reply-request",
+  {
+    threadId: ContextId;
+    requestedFrom: ContextId;
+    requestedBy?: ContextId;
+    taskId?: ContextId;
+    message?: string;
+  }
+>;
+
+export type MeetingTurn = ContextNode<
+  "meeting-turn",
+  {
+    threadId: ContextId;
+    requestedFrom: ContextId;
+    requestedBy?: ContextId;
+    taskId?: ContextId;
+    agenda?: string;
+  }
+>;
+
+export type MeetingState = ContextNode<
+  "meeting-state",
+  {
+    threadId: ContextId;
+    status: "open" | "paused" | "closed";
+    facilitatorId?: ContextId;
+    objective?: string;
   }
 >;
 
@@ -154,4 +208,8 @@ export type AnyContext =
   | Task
   | TaskStatusChange
   | TaskResult
-  | AgentStatus;
+  | AgentStatus
+  | Notification
+  | ReplyRequest
+  | MeetingTurn
+  | MeetingState;

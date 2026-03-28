@@ -9,3 +9,4 @@ export * from "./projection.js";
 export * from "./agent.js";
 export * from "./pi-runtime.js";
 export * from "./execution-engine.js";
+export * from "./commands.js";

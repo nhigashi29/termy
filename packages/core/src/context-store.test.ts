@@ -232,4 +232,111 @@ describe("context-store", () => {
 
     expect(store.findAgentByRole("researcher")).toBeUndefined();
   });
+
+  it("listNotifications returns notification contexts", () => {
+    const store = createContextStore();
+
+    const notification = createContextNode({
+      id: "n:1",
+      type: "notification",
+      payload: { kind: "task-completed" as const, taskId: "task:1" },
+    });
+
+    store.append(notification);
+    store.append(createContextNode({ id: "t:1", type: "thread", payload: {} }));
+
+    expect(store.listNotifications()).toEqual([notification]);
+  });
+
+  it("includes reply-request in thread listings and resolves pending replies", () => {
+    const store = createContextStore();
+
+    const thread = createContextNode({ id: "thread:reply", type: "thread", payload: {} });
+    const request = createContextNode({
+      id: "reply:1",
+      type: "reply-request",
+      createdBy: "agent:worker",
+      payload: {
+        threadId: "thread:reply",
+        requestedFrom: "agent:manager",
+        requestedBy: "agent:worker",
+        taskId: "task:1",
+        message: "Need clarification",
+      },
+    });
+
+    store.appendMany([thread, request]);
+
+    expect(store.listThread("thread:reply")).toEqual([thread, request]);
+    expect(store.listPendingReplyRequests("agent:manager")).toEqual([request]);
+
+    store.append(
+      createContextNode({
+        id: "msg:reply",
+        type: "message",
+        createdBy: "agent:manager",
+        payload: {
+          role: "assistant" as const,
+          text: "Here is the clarification.",
+          threadId: "thread:reply",
+        },
+      }),
+    );
+
+    expect(store.listPendingReplyRequests("agent:manager")).toEqual([]);
+  });
+
+  it("tracks pending meeting turns per requested participant", () => {
+    const store = createContextStore();
+
+    const thread = createContextNode({
+      id: "thread:meeting",
+      type: "thread",
+      payload: {
+        mode: "meeting" as const,
+        participantIds: ["agent:manager", "agent:reviewer"],
+        turnPolicy: "manager-mediated" as const,
+      },
+    });
+    const state = createContextNode({
+      id: "meeting-state:1",
+      type: "meeting-state",
+      payload: {
+        threadId: "thread:meeting",
+        status: "open" as const,
+        facilitatorId: "agent:manager",
+        objective: "Discuss design",
+      },
+    });
+    const turn = createContextNode({
+      id: "meeting-turn:1",
+      type: "meeting-turn",
+      payload: {
+        threadId: "thread:meeting",
+        requestedFrom: "agent:reviewer",
+        requestedBy: "agent:manager",
+        agenda: "Review the design",
+      },
+    });
+
+    store.appendMany([thread, state, turn]);
+
+    expect(store.listThread("thread:meeting")).toEqual([thread, state, turn]);
+    expect(store.listPendingMeetingTurns("agent:reviewer")).toEqual([turn]);
+
+    store.append(
+      createContextNode({
+        id: "meeting-msg:1",
+        type: "message",
+        createdBy: "agent:reviewer",
+        payload: {
+          role: "assistant" as const,
+          text: "Here is my review.",
+          threadId: "thread:meeting",
+        },
+      }),
+    );
+
+    expect(store.listPendingMeetingTurns("agent:reviewer")).toEqual([]);
+  });
 });

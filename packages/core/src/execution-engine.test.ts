@@ -183,6 +183,588 @@ describe("execution-engine", () => {
     expect(latest?.payload.status).toBe("idle");
   });
 
+  it("emits notifications for task lifecycle", async () => {
+    const runtime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "ok" }),
+    };
+
+    const store = createContextStore();
+    const workerId = "agent:worker";
+
+    store.append(
+      createContextNode({
+        id: "task:n1",
+        type: "task",
+        payload: {
+          parentThreadId: "thread:main",
+          assignedTo: workerId,
+          instruction: "notify me",
+        },
+      }),
+    );
+
+    const engine = createExecutionEngine({
+      store,
+      workers: [
+        {
+          agentId: workerId,
+          agent: makeWorkerAgent(store, runtime, workerId),
+        },
+      ],
+    });
+
+    await engine.tick();
+
+    const notifications = store.listNotifications();
+    expect(notifications.map((n) => n.payload.kind)).toEqual([
+      "agent-busy",
+      "task-completed",
+      "agent-idle",
+    ]);
+    expect(notifications[1].payload.taskId).toBe("task:n1");
+  });
+
+  it("emits failure notifications when task fails", async () => {
+    const runtime: PiRuntime = {
+      run: vi.fn().mockRejectedValue(new Error("boom")),
+    };
+
+    const store = createContextStore();
+    const workerId = "agent:worker";
+
+    store.append(
+      createContextNode({
+        id: "task:n2",
+        type: "task",
+        payload: {
+          parentThreadId: "thread:main",
+          assignedTo: workerId,
+          instruction: "fail and notify",
+        },
+      }),
+    );
+
+    const engine = createExecutionEngine({
+      store,
+      workers: [
+        {
+          agentId: workerId,
+          agent: makeWorkerAgent(store, runtime, workerId),
+        },
+      ],
+    });
+
+    await engine.tick();
+
+    const notifications = store.listNotifications();
+    expect(notifications.map((n) => n.payload.kind)).toEqual([
+      "agent-busy",
+      "task-failed",
+      "agent-idle",
+    ]);
+    expect(notifications[1].payload.message).toBe("boom");
+  });
+
+  it("runs subscribed reactive agents on matching notifications using the orchestration thread", async () => {
+    const workerRuntime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "worker output" }),
+    };
+    const managerRuntime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "manager collected result" }),
+    };
+
+    const store = createContextStore();
+    const workerId = "agent:worker";
+    const managerId = "agent:manager";
+
+    store.append(
+      createContextNode({
+        id: managerId,
+        type: "agent",
+        payload: { name: "manager", role: "manager" },
+      }),
+    );
+
+    const engine = createExecutionEngine({
+      store,
+      workers: [
+        {
+          agentId: workerId,
+          agent: makeWorkerAgent(store, workerRuntime, workerId),
+        },
+      ],
+      reactiveAgents: [
+        {
+          agentId: managerId,
+          agent: createAgent({
+            id: managerId,
+            store,
+            runtime: managerRuntime,
+            projection: conversationProjection(),
+          }),
+        },
+      ],
+      subscriptions: [
+        {
+          subscriberAgentId: managerId,
+          kinds: ["task-completed"],
+        },
+      ],
+    });
+
+    const stop = engine.start();
+
+    store.append(
+      createContextNode({
+        id: "task:reactive",
+        type: "task",
+        payload: {
+          parentThreadId: "thread:main",
+          assignedTo: workerId,
+          instruction: "do work",
+        },
+      }),
+    );
+
+    await engine.waitForTask("task:reactive");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(managerRuntime.run).toHaveBeenCalledOnce();
+    const orchestrationThread = store.get("thread:runtime-control");
+    expect(orchestrationThread?.type).toBe("thread");
+
+    const runtimeMessages = store
+      .listThread("thread:runtime-control")
+      .filter((context) => context.type === "message");
+    expect(runtimeMessages).toHaveLength(1);
+    expect(runtimeMessages[0]).toMatchObject({
+      type: "message",
+      payload: { role: "assistant", text: "manager collected result" },
+    });
+
+    stop();
+  });
+
+  it("defers notification reactions while the subscriber is already marked running", async () => {
+    const managerRuntime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "deferred manager reaction" }),
+    };
+
+    const store = createContextStore();
+    const managerId = "agent:manager";
+
+    store.append(
+      createContextNode({
+        id: managerId,
+        type: "agent",
+        payload: { name: "manager", role: "manager" },
+      }),
+    );
+
+    store.append(
+      createContextNode({
+        id: "agent-status:running",
+        type: "agent-status",
+        payload: { agentId: managerId, status: "running" as const },
+      }),
+    );
+
+    const engine = createExecutionEngine({
+      store,
+      reactiveAgents: [
+        {
+          agentId: managerId,
+          agent: createAgent({
+            id: managerId,
+            store,
+            runtime: managerRuntime,
+            projection: conversationProjection(),
+          }),
+        },
+      ],
+      subscriptions: [
+        {
+          subscriberAgentId: managerId,
+          kinds: ["task-completed"],
+        },
+      ],
+    });
+
+    const stop = engine.start();
+
+    store.append(
+      createContextNode({
+        id: "notification:1",
+        type: "notification",
+        payload: { kind: "task-completed", taskId: "task:1" },
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(managerRuntime.run).not.toHaveBeenCalled();
+
+    store.append(
+      createContextNode({
+        id: "agent-status:idle",
+        type: "agent-status",
+        payload: { agentId: managerId, status: "idle" as const },
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(managerRuntime.run).toHaveBeenCalledOnce();
+
+    stop();
+  });
+
+  it("runs reply-request reactions on the requested thread", async () => {
+    const managerRuntime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "Here is the clarification." }),
+    };
+
+    const store = createContextStore();
+    const managerId = "agent:manager";
+
+    store.append(
+      createContextNode({
+        id: managerId,
+        type: "agent",
+        payload: { name: "manager", role: "manager" },
+      }),
+    );
+    store.append(createContextNode({ id: "thread:clarify", type: "thread", payload: {} }));
+    store.append(
+      createContextNode({
+        id: "agent-status:waiting",
+        type: "agent-status",
+        payload: {
+          agentId: "agent:worker",
+          status: "waiting" as const,
+          taskId: "task:1",
+          threadId: "thread:clarify",
+        },
+      }),
+    );
+
+    const engine = createExecutionEngine({
+      store,
+      reactiveAgents: [
+        {
+          agentId: managerId,
+          agent: createAgent({
+            id: managerId,
+            store,
+            runtime: managerRuntime,
+            projection: conversationProjection(),
+          }),
+        },
+      ],
+    });
+
+    const stop = engine.start();
+
+    store.append(
+      createContextNode({
+        id: "reply:1",
+        type: "reply-request",
+        createdBy: "agent:worker",
+        payload: {
+          threadId: "thread:clarify",
+          requestedFrom: managerId,
+          requestedBy: "agent:worker",
+          taskId: "task:1",
+          message: "Need clarification",
+        },
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(managerRuntime.run).toHaveBeenCalledOnce();
+    const threadMessages = store
+      .listThread("thread:clarify")
+      .filter((context) => context.type === "message");
+    expect(threadMessages).toHaveLength(1);
+    expect(threadMessages[0]).toMatchObject({
+      type: "message",
+      payload: { role: "assistant", text: "Here is the clarification." },
+    });
+
+    expect(store.latestAgentStatus("agent:worker")?.payload.status).toBe("idle");
+    expect(
+      store
+        .listNotifications()
+        .some((notification) => notification.payload.kind === "reply-available" && notification.payload.targetAgentId === "agent:worker"),
+    ).toBe(true);
+
+    stop();
+  });
+
+  it("resumes the same task thread after clarification becomes available", async () => {
+    const store = createContextStore();
+    const workerId = "agent:worker";
+    const managerId = "agent:manager";
+    const workerThreadId = "thread:worker-task";
+
+    store.append(
+      createContextNode({
+        id: managerId,
+        type: "agent",
+        payload: { name: "manager", role: "manager" },
+      }),
+    );
+
+    const workerRuntime: PiRuntime = {
+      run: vi
+        .fn()
+        .mockImplementationOnce(async () => {
+          store.appendMany([
+            createContextNode({
+              id: "agent-status:waiting-1",
+              type: "agent-status",
+              payload: {
+                agentId: workerId,
+                status: "waiting" as const,
+                taskId: "task:clarify",
+                threadId: workerThreadId,
+              },
+            }),
+            createContextNode({
+              id: "reply-request:1",
+              type: "reply-request",
+              createdBy: workerId,
+              payload: {
+                threadId: workerThreadId,
+                requestedFrom: managerId,
+                requestedBy: workerId,
+                taskId: "task:clarify",
+                message: "Need clarification",
+              },
+            }),
+          ]);
+          return { output: "waiting for clarification" };
+        })
+        .mockImplementationOnce(async (request) => {
+          expect(request.input).toContain("Need clarification");
+          expect(request.input).toContain("assistant: Clarified requirement");
+          return { output: "final answer" };
+        }),
+    };
+
+    const managerRuntime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "Clarified requirement" }),
+    };
+
+    const engine = createExecutionEngine({
+      store,
+      workers: [
+        {
+          agentId: workerId,
+          agent: createAgent({
+            id: workerId,
+            store,
+            runtime: workerRuntime,
+            projection: workerProjection(),
+          }),
+        },
+      ],
+      reactiveAgents: [
+        {
+          agentId: managerId,
+          agent: createAgent({
+            id: managerId,
+            store,
+            runtime: managerRuntime,
+            projection: conversationProjection(),
+          }),
+        },
+      ],
+    });
+
+    const stop = engine.start();
+
+    store.appendMany([
+      createContextNode({ id: workerThreadId, type: "thread", payload: {} }),
+      createContextNode({
+        id: "task:clarify",
+        type: "task",
+        payload: {
+          parentThreadId: "thread:main",
+          workerThreadId,
+          assignedTo: workerId,
+          instruction: "do the task",
+        },
+      }),
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(workerRuntime.run).toHaveBeenCalledTimes(2);
+    expect(managerRuntime.run).toHaveBeenCalledOnce();
+    expect(store.latestTaskStatus("task:clarify")?.payload.status).toBe("done");
+    const results = store.listTaskResults("task:clarify");
+    expect(results.at(-1)?.payload.output).toBe("final answer");
+
+    stop();
+  });
+
+  it("dispatches meeting turns to participants on the meeting thread", async () => {
+    const reviewerId = "agent:reviewer";
+    const reviewerRuntime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "I have reviewed the proposal." }),
+    };
+
+    const store = createContextStore();
+    store.append(
+      createContextNode({
+        id: reviewerId,
+        type: "agent",
+        payload: { name: "reviewer", role: "reviewer" },
+      }),
+    );
+    store.appendMany([
+      createContextNode({
+        id: "thread:meeting",
+        type: "thread",
+        payload: {
+          name: "design review",
+          mode: "meeting" as const,
+          participantIds: ["agent:manager", reviewerId],
+          turnPolicy: "manager-mediated" as const,
+        },
+      }),
+      createContextNode({
+        id: "meeting-state:1",
+        type: "meeting-state",
+        payload: {
+          threadId: "thread:meeting",
+          status: "open" as const,
+          facilitatorId: "agent:manager",
+          objective: "Review the design",
+        },
+      }),
+    ]);
+
+    const engine = createExecutionEngine({
+      store,
+      reactiveAgents: [
+        {
+          agentId: reviewerId,
+          agent: createAgent({
+            id: reviewerId,
+            store,
+            runtime: reviewerRuntime,
+            projection: conversationProjection(),
+          }),
+        },
+      ],
+    });
+
+    const stop = engine.start();
+
+    store.append(
+      createContextNode({
+        id: "meeting-turn:1",
+        type: "meeting-turn",
+        payload: {
+          threadId: "thread:meeting",
+          requestedFrom: reviewerId,
+          requestedBy: "agent:manager",
+          agenda: "Give your review",
+        },
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(reviewerRuntime.run).toHaveBeenCalledOnce();
+    const meetingMessages = store
+      .listThread("thread:meeting")
+      .filter((context) => context.type === "message");
+    expect(meetingMessages.at(-1)).toMatchObject({
+      type: "message",
+      payload: { role: "assistant", text: "I have reviewed the proposal." },
+    });
+
+    stop();
+  });
+
+  it("dispatches meeting turns to worker participants via worker resolution", async () => {
+    const reviewerId = "agent:reviewer";
+    const reviewerRuntime: PiRuntime = {
+      run: vi.fn().mockResolvedValue({ output: "Worker meeting contribution." }),
+    };
+
+    const store = createContextStore();
+    store.append(
+      createContextNode({
+        id: reviewerId,
+        type: "agent",
+        payload: { name: "reviewer", role: "reviewer" },
+      }),
+    );
+    store.appendMany([
+      createContextNode({
+        id: "thread:meeting",
+        type: "thread",
+        payload: {
+          name: "design review",
+          mode: "meeting" as const,
+          participantIds: ["agent:manager", reviewerId],
+          turnPolicy: "manager-mediated" as const,
+        },
+      }),
+      createContextNode({
+        id: "meeting-state:1",
+        type: "meeting-state",
+        payload: {
+          threadId: "thread:meeting",
+          status: "open" as const,
+          facilitatorId: "agent:manager",
+          objective: "Review the design",
+        },
+      }),
+    ]);
+
+    const engine = createExecutionEngine({
+      store,
+      workers: [
+        {
+          agentId: reviewerId,
+          agent: makeWorkerAgent(store, reviewerRuntime, reviewerId),
+        },
+      ],
+    });
+
+    const stop = engine.start();
+
+    store.append(
+      createContextNode({
+        id: "meeting-turn:worker",
+        type: "meeting-turn",
+        payload: {
+          threadId: "thread:meeting",
+          requestedFrom: reviewerId,
+          requestedBy: "agent:manager",
+          agenda: "Give your review",
+        },
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(reviewerRuntime.run).toHaveBeenCalledOnce();
+    const meetingMessages = store
+      .listThread("thread:meeting")
+      .filter((context) => context.type === "message");
+    expect(meetingMessages.at(-1)).toMatchObject({
+      type: "message",
+      payload: { role: "assistant", text: "Worker meeting contribution." },
+    });
+
+    stop();
+  });
+
   it("start() auto-dispatches tasks appended to store", async () => {
     const runtime: PiRuntime = {
       run: vi.fn().mockResolvedValue({ output: "auto" }),
