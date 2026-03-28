@@ -34,4 +34,5 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - [`docs/design/communication-patterns.md`](docs/design/communication-patterns.md) — channel/thread/task design direction
 - [`docs/design/implementation-plan.md`](docs/design/implementation-plan.md) — phased implementation ideas
 - [`docs/design/multi-agent.md`](docs/design/multi-agent.md) — multi-agent coordination direction
+- [`docs/design/goal-architecture.md`](docs/design/goal-architecture.md) — long-term target architecture
 - [`AGENTS.md`](AGENTS.md)
