@@ -35,4 +35,5 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - [`docs/design/implementation-plan.md`](docs/design/implementation-plan.md) — phased implementation ideas
 - [`docs/design/multi-agent.md`](docs/design/multi-agent.md) — multi-agent coordination direction
 - [`docs/design/goal-architecture.md`](docs/design/goal-architecture.md) — long-term target architecture
+- [`docs/design/context-control-plane.md`](docs/design/context-control-plane.md) — why context needs explicit runtime control
 - [`AGENTS.md`](AGENTS.md)
