@@ -1,7 +1,7 @@
 import { v7 as uuidv7 } from "uuid";
 
 import { createContextNode } from "./context.js";
-import type { Agent, AnyContext, ContextId, Thread, User } from "./context-types.js";
+import type { AgentContext, AnyContext, ContextId, Thread, User } from "./context-types.js";
 import type { ContextStore } from "./context-store.js";
 
 export function createContextId(): ContextId {
@@ -56,8 +56,8 @@ export type EnsureAgentContextInput = {
   role?: string;
 };
 
-export function ensureAgentContext(input: EnsureAgentContextInput): Agent {
-  const existing = findContextByTypeAndKey<Agent>(input.store, "agent", input.key);
+export function ensureAgentContext(input: EnsureAgentContextInput): AgentContext {
+  const existing = findContextByTypeAndKey<AgentContext>(input.store, "agent", input.key);
 
   if (existing) {
     return existing;

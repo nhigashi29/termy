@@ -3,6 +3,7 @@ import {
   DefaultResourceLoader,
   SessionManager,
   type AgentSessionEvent,
+  type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
 import type { PiRunRequest, PiRunResult, PiRuntime, PiRuntimeRunHooks } from "@termy/core";
 
@@ -11,6 +12,7 @@ import { createTermyTools, TERMY_SYSTEM_PROMPT } from "./termy-runtime-config.js
 export type CreatePiSdkRuntimeOptions = {
   cwd?: string;
   systemPrompt?: string;
+  customTools?: ToolDefinition[];
 };
 
 export async function createPiSdkRuntime(
@@ -18,6 +20,7 @@ export async function createPiSdkRuntime(
 ): Promise<PiRuntime> {
   const cwd = options.cwd ?? process.cwd();
   const defaultSystemPrompt = options.systemPrompt ?? TERMY_SYSTEM_PROMPT;
+  const customTools = options.customTools ?? [];
 
   return {
     async run(request: PiRunRequest, hooks?: PiRuntimeRunHooks): Promise<PiRunResult> {
@@ -35,6 +38,7 @@ export async function createPiSdkRuntime(
       const { session } = await createAgentSession({
         cwd,
         tools: createTermyTools(cwd),
+        customTools,
         resourceLoader,
         sessionManager: SessionManager.inMemory(),
       });

@@ -49,5 +49,27 @@ export function toContextText(context: AnyContext): string {
       { type: "tool-result" },
       (context) => `tool-result ${formatValue(context.payload.output)}`,
     )
+    .with(
+      { type: "task" },
+      (context) => `task ${context.payload.title ?? context.id}: ${context.payload.instruction}`,
+    )
+    .with(
+      { type: "task-status" },
+      (context) =>
+        `task-status ${context.payload.taskId} ${context.payload.status}${
+          context.payload.reason ? ` (${context.payload.reason})` : ""
+        }`,
+    )
+    .with(
+      { type: "task-result" },
+      (context) => `task-result ${context.payload.taskId} ${formatValue(context.payload.output)}`,
+    )
+    .with(
+      { type: "agent-status" },
+      (context) =>
+        `agent-status ${context.payload.agentId} ${context.payload.status}${
+          context.payload.taskId ? ` task:${context.payload.taskId}` : ""
+        }`,
+    )
     .exhaustive();
 }

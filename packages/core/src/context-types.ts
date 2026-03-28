@@ -19,7 +19,7 @@ export type User = ContextNode<
   }
 >;
 
-export type Agent = ContextNode<
+export type AgentContext = ContextNode<
   "agent",
   {
     key?: string;
@@ -97,9 +97,52 @@ export type ToolResult = ContextNode<
   }
 >;
 
+export type TaskStatus = "pending" | "in-progress" | "done" | "failed";
+
+export type Task = ContextNode<
+  "task",
+  {
+    parentThreadId: ContextId;
+    workerThreadId?: ContextId;
+    assignedTo: ContextId;
+    instruction: string;
+    title?: string;
+  }
+>;
+
+export type TaskStatusChange = ContextNode<
+  "task-status",
+  {
+    taskId: ContextId;
+    status: TaskStatus;
+    reason?: string;
+  }
+>;
+
+export type TaskResult = ContextNode<
+  "task-result",
+  {
+    taskId: ContextId;
+    threadId: ContextId;
+    output: unknown;
+  }
+>;
+
+export type AgentRunStatus = "idle" | "running";
+
+export type AgentStatus = ContextNode<
+  "agent-status",
+  {
+    agentId: ContextId;
+    status: AgentRunStatus;
+    taskId?: ContextId;
+    threadId?: ContextId;
+  }
+>;
+
 export type AnyContext =
   | User
-  | Agent
+  | AgentContext
   | System
   | Session
   | Thread
@@ -107,4 +150,8 @@ export type AnyContext =
   | Capability
   | ToolDefinition
   | ToolCall
-  | ToolResult;
+  | ToolResult
+  | Task
+  | TaskStatusChange
+  | TaskResult
+  | AgentStatus;
