@@ -202,15 +202,16 @@ There are two compatible interpretations of "spawn":
 
 ### Logical spawn
 
-A new agent identity or role is created in the context system and assigned work.
+A new agent definition, role, or activation request is created in the context system and assigned work.
 This is the simplest version and likely the best first step.
 
 ### Runtime spawn
 
-A new isolated runtime session/process is created for that agent.
+A new isolated runtime session/process is created to execute that agent role.
 This allows stronger isolation, parallelism, and more explicit resource control.
 
 The architecture should allow starting with logical spawn and later upgrading to runtime spawn without changing the context model.
+In other words, agent definitions and lifecycle records belong in context, while agent execution itself remains a runtime concern.
 
 ---
 

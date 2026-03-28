@@ -271,15 +271,16 @@ That is why multi-agent coordination is better viewed as a context architecture 
 
 ## Agent as a context-defined actor
 
-A strong extension of the context-first idea is to model agents themselves as context-defined actors.
+A stronger and more precise extension of the context-first idea is to treat agents as **context-defined actors**, while keeping execution itself as a runtime concern.
 
-In that view:
+In that view, the first-class contexts are not necessarily a single `Agent` object. Instead they are the durable facts and lifecycle records that describe an agent, such as:
 
-- an `Agent` is a first-class context entity
-- capabilities can be represented as contexts
-- spawn / activation can be represented as contexts
-- task ownership and delegation become context relationships
-- subscriptions and participation can be represented explicitly
+- `AgentDefinition`
+- capabilities
+- spawn / activation requests
+- task ownership and delegation relationships
+- subscriptions and participation
+- run / activation status events
 
 This enables a uniform model for:
 
@@ -289,7 +290,8 @@ This enables a uniform model for:
 - capability-aware routing
 - replayable agent topology and lifecycle
 
-The execution engine remains imperative code, but the actors it drives are described in the same context space as everything else.
+Under this model, **agent execution is runtime, not context**.
+The execution engine remains imperative code, while agent definitions, capabilities, and lifecycle records live in the context space and can be observed, replayed, queried, and projected like everything else.
 
 ---
 
