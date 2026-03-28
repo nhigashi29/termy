@@ -6,6 +6,7 @@
     "termy": "./dist/index.js"
   },
   "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.63.1",
     "@termy/core": "workspace:*"
   },
   "scripts": {

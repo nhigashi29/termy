@@ -1,5 +1,13 @@
+export * from "./context-types.js";
+export * from "./context.js";
+export * from "./context-text.js";
+export * from "./pi-runtime.js";
+
+import type { PiRuntime } from "./pi-runtime.js";
+
 export interface AgentOptions {
   name?: string;
+  runtime: PiRuntime;
 }
 
 export interface Agent {
@@ -7,7 +15,7 @@ export interface Agent {
   run(input: string): Promise<string>;
 }
 
-export function createAgent(options: AgentOptions = {}): Agent {
+export function createAgent(options: AgentOptions): Agent {
   const name = options.name ?? "termy";
 
   return {
@@ -21,7 +29,8 @@ export function createAgent(options: AgentOptions = {}): Agent {
         return "何か入力してね。";
       }
 
-      return `${name}: you said -> ${text}`;
+      const result = await options.runtime.run({ input: text });
+      return result.output;
     },
   };
 }

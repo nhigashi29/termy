@@ -3,10 +3,13 @@ import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createAgent } from "@termy/core";
 
+import { createPiSdkRuntime } from "./pi-sdk-runtime.js";
+
 async function main(): Promise<void> {
   console.log("[cli] booting @termy/cli");
 
-  const agent = createAgent({ name: "termy-dev" });
+  const runtime = await createPiSdkRuntime();
+  const agent = createAgent({ name: "termy-dev", runtime });
   const rl = readline.createInterface({ input, output });
 
   console.log("termy ready. type 'exit' to quit.");
