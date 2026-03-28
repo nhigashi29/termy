@@ -71,6 +71,7 @@ export type ToolCall = ContextNode<
   {
     tool: string;
     args: Record<string, unknown>;
+    threadId?: ContextId;
     toolDefinitionId?: ContextId;
     targetId?: ContextId;
   }
@@ -80,7 +81,9 @@ export type ToolResult = ContextNode<
   "tool-result",
   {
     output: unknown;
+    threadId?: ContextId;
     toolCallId?: ContextId;
+    isError?: boolean;
   }
 >;
 

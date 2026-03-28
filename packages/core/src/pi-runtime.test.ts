@@ -26,8 +26,9 @@ describe("pi-runtime", () => {
       }),
     ];
 
-    expect(toPiInput(contexts)).toEqual({
+    expect(toPiInput(contexts, { threadId: "thread:1" })).toEqual({
       input: "thread thread:1\nuser: src/index.ts を見て",
+      systemPrompt: undefined,
     });
   });
 
@@ -59,9 +60,13 @@ describe("pi-runtime", () => {
       createdBy: "agent:pi",
     });
 
-    expect(runtime.run).toHaveBeenCalledWith({
-      input: "user: 見て",
-    });
+    expect(runtime.run).toHaveBeenCalledWith(
+      {
+        input: "user: 見て",
+        systemPrompt: undefined,
+      },
+      undefined,
+    );
     expect(message).toMatchObject({
       id: "message:2",
       type: "message",
