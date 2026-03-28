@@ -1,0 +1,16 @@
+{
+  "name": "@termy/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "termy": "./dist/index.js"
+  },
+  "dependencies": {
+    "@termy/core": "workspace:*"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @termy/core build && tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  }
+}
