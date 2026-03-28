@@ -1,20 +1,25 @@
 # termy
 
-A small terminal agent project built as a pnpm workspace monorepo.
+A context-first terminal agent experiment built as a pnpm workspace monorepo.
+
+`termy` explores an architecture where conversation state, tool activity, and future agent coordination are represented as append-only context records.
 
 ## Packages
 
-- `@termy/core` — core agent logic
-- `@termy/cli` — terminal CLI
+- `@termy/core` — core context model, storage, projection, and conversation orchestration
+- `@termy/cli` — terminal CLI and Pi SDK-backed runtime wiring
 
 ## Current status
 
-This is an early scaffold for experimenting with a terminal-based agent.
-Right now it includes:
+This project is still an early implementation, but it already includes:
 
-- a workspace setup with `core` and `cli`
-- a simple REPL
-- a minimal core agent function
+- a pnpm workspace with `core` and `cli`
+- a terminal REPL
+- an append-only in-memory `ContextStore`
+- JSONL-based context persistence
+- thread-scoped conversation orchestration
+- runtime projection from stored contexts into model input
+- tool call and tool result persistence during runs
 
 ## Development
 
@@ -23,6 +28,10 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 ## Docs
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/context-model.md`](docs/context-model.md)
+- [`docs/architecture.md`](docs/architecture.md) — current implementation structure
+- [`docs/context-model.md`](docs/context-model.md) — design philosophy
+- [`docs/design/context-model.md`](docs/design/context-model.md) — future context model notes
+- [`docs/design/communication-patterns.md`](docs/design/communication-patterns.md) — channel/thread/task design direction
+- [`docs/design/implementation-plan.md`](docs/design/implementation-plan.md) — phased implementation ideas
+- [`docs/design/multi-agent.md`](docs/design/multi-agent.md) — multi-agent coordination direction
 - [`AGENTS.md`](AGENTS.md)
